@@ -1,1 +1,156 @@
+functions.py
+      FILEPATH = "todos.txt"
+      
+      def get_todos(filepath=FILEPATH):
+          """Read a text file and return the list of
+          to-do items.
+          """
+          with open(filepath, 'r') as file_local:
+              todos_local = file_local.readlines()
+          return todos_local
+      
+      
+      def write_todos(todos_arg, filepath=FILEPATH):
+          """Write to-do items list in the text file."""
+          with  open(filepath, 'w') as file:
+              file.writelines(todos_arg)
 
+
+
+cli.py
+      import functions
+      import time
+      
+      # Display current time
+      now = time.strftime("%b %d, %Y %H:%M:%S")
+      print("The time is below:")
+      print("It is", now)
+      
+      # Main program loop
+      while True:
+          user_action = input("Type add, show, edit, complete, or exit: ").strip()
+      
+          # Add a new todo item
+          if user_action.startswith("add"):
+              todo = user_action[4:].strip()
+              todos = functions.get_todos()
+              todos.append(todo + '\n')
+              functions.write_todos(todos)
+      
+          # Show all todo items
+          elif user_action.startswith("show"):
+              todos = functions.get_todos()
+              for index, item in enumerate(todos):
+                  item = item.strip('\n')  # Strip newline character for display
+                  row = f"{index + 1} - {item}"
+                  print(row)
+      
+          # Edit a specific todo item
+          elif user_action.startswith("edit"):
+              try:
+                  number = int(user_action[5:].strip())
+                  todos = functions.get_todos()
+                  new_todo = input("Enter the new todo: ").strip()
+                  todos[number - 1] = new_todo + '\n'
+                  functions.write_todos(todos)
+              except ValueError:
+                  print("Invalid input! Please enter a number after 'edit'.")
+              except IndexError:
+                  print("There is no todo with this number.")
+      
+          # Complete a specific todo item
+          elif user_action.startswith("complete"):
+              try:
+                  number = int(user_action[9:].strip())
+                  todos = functions.get_todos()
+                  todo_to_remove = todos.pop(number - 1).strip('\n')
+                  functions.write_todos(todos)
+                  print(f"Todo '{todo_to_remove}' was removed from the list.")
+              except ValueError:
+                  print("Invalid input! Please enter a number after 'complete'.")
+              except IndexError:
+                  print("There is no todo with this number.")
+      
+          # Exit the program
+          elif user_action.startswith("exit"):
+              print("Bye!")
+              break
+      
+          # Handle invalid commands
+          else:
+              print("Invalid command. Please enter 'add', 'show', 'edit', 'complete', or 'exit'.")
+
+
+
+gui.py
+          import functions
+          import PySimpleGUI as sg
+          import time
+          import os
+          
+          if not os.path.exists("todos.txt"):
+              with open("todos.txt", "w") as file:
+                  pass
+          
+          sg.theme("LightBrown11")
+          
+          clock = sg.Text('', key="clock")
+          label = sg.Text("Type in a to-do")
+          input_box = sg.InputText(tooltip="Enter a todo", key="todo")
+          add_button = sg.Button(size=3, image_source="add.png", mouseover_colors="LightBlue2",
+                                 tooltip="Add To-do", key="Add")
+          list_box = sg.Listbox(values=functions.get_todos(), key='todos',
+                                enable_events=True, size=[45, 10])
+          edit_button = sg.Button("Edit")
+          complete_button = sg.Button(image_source="complete.png", key="Complete",
+                                      mouseover_colors="LightBlue2", tooltip="Complete")
+          exit_button = sg.Button("Exit")
+          
+          window = sg.Window('My To-do App',
+                             layout=[[clock],
+                                     [label],
+                                     [input_box, add_button],
+                                     [list_box, edit_button, complete_button],
+                                     [exit_button]],
+                             font=('Helvetica', 20))
+          while True:
+              event, values = window.read(timeout=900)
+              window["clock"].update(value=time.strftime("%b %d, %Y %H:%M:%S"))
+              match event:
+                  case 'Add':
+                      todos = functions.get_todos()
+                      new_todo = values['todo'] + '\n'
+                      todos.append(new_todo)
+                      functions.write_todos(todos)
+                      window['todos'].update(values=todos)
+          
+                  case 'Edit':
+                      try:
+                          todo_to_edit = values['todos'][0]
+                          new_todo = values['todo']
+          
+                          todos = functions.get_todos()
+                          index = todos.index(todo_to_edit)
+                          todos[index] = new_todo
+                          functions.write_todos(todos)
+                          window['todos'].update(values=todos)
+                      except IndexError:
+                          sg.popup("Please select an item first", font=('Helvetica', 20))
+                  case 'Complete':
+                      try:
+                          todo_to_complete = values['todos'][0]
+                          todos = functions.get_todos()
+                          todos.remove(todo_to_complete)
+                          functions.write_todos(todos)
+                          window['todos'].update(values=todos)
+                          window['todo'].update(value='')
+                      except IndexError:
+                          sg.popup("Please select an item first", font=('Helvetica', 20))
+                  case 'Exit':
+                      break
+                  case 'todos':
+                      window['todo'].update(value=values['todos'][0])
+                  case sg.WINDOW_CLOSED:
+                      break
+          
+          window.close()
